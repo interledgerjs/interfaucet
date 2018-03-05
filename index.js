@@ -6,11 +6,14 @@ const url = require('url')
 const debug = require('debug')('interfaucet')
 function base64url (buf) { return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') }
 
+const AMUNDSEN_17Q3 = 'amundsen.ilpdemo.org/api/17q3'
+const USERNAME = 'interfaucet'
+
 const plugin = new Plugin({
-  btpUri: 'btp+wss://interfaucet:' + process.env.TOKEN + '@amundsen.ilpdemo.org/api/17q3',
+  btpUri: `btp+wss://${USERNAME}:${process.env.TOKEN}@${AMUNDSEN_17Q3}`
 })
 
-function getQuote(ipp) {
+function getQuote (ipp) {
   debug('ipp', JSON.stringify(ipp))
   const quotePacket = IlpPacket.serializeIlqpByDestinationRequest({
     destinationAccount: ipp.account,
@@ -34,7 +37,7 @@ function getQuote(ipp) {
   })
 }
 
-function sendTransfer(sourceAmount, ipp, condition) {
+function sendTransfer (sourceAmount, ipp, condition) {
   const transfer = {
     id: uuid(),
     from: plugin.getAccount(),
@@ -49,7 +52,7 @@ function sendTransfer(sourceAmount, ipp, condition) {
   return plugin.sendTransfer(transfer)
 }
 
-function pay(ipr, res) {
+function pay (ipr, res) {
   debug('paying', ipr)
   const ipp = IlpPacket.deserializeIlpPayment(ipr.packet)
   return getQuote(ipp).then(quoteResponse => {
@@ -79,12 +82,12 @@ plugin.connect().then(() => {
             packet: IlpPacket.serializeIlpPayment({
               account: queryData.address,
               amount: '1000',
-              data: new Buffer([])
+              data: Buffer.from([])
             }),
             condition: base64url(Buffer.from(queryData.condition, 'hex'))
           }, res)
         }
-        debug (req.url)
+        debug(req.url)
         res.end('<html><h2>Welcome to Interfaucet!</h2><p>See <a href="https://github.com/michielbdejong/ilp-plugin-stripe/pull/2">the payment requests tutorial</a>.</p>')
         return
       }

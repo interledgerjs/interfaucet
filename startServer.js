@@ -59,7 +59,7 @@ function getLetsEncryptServers (domain, email, callback) {
   })
 }
 
-function startServer(callback) {
+function startServer (callback) {
   if (process.env.DOMAIN && process.env.EMAIL) {
     return getLetsEncryptServers(process.env.DOMAIN, process.env.EMAIL, callback)
   }
