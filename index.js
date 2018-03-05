@@ -3,6 +3,7 @@ const Plugin = require('ilp-plugin-btp-client')
 const IlpPacket = require('ilp-packet')
 const uuid = require('uuid/v4')
 const url = require('url')
+const debug = require('debug')('interfaucet')
 function base64url (buf) { return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') }
 
 const plugin = new Plugin({
@@ -10,7 +11,7 @@ const plugin = new Plugin({
 })
 
 function getQuote(ipp) {
-  console.log('ipp', JSON.stringify(ipp))
+  debug('ipp', JSON.stringify(ipp))
   const quotePacket = IlpPacket.serializeIlqpByDestinationRequest({
     destinationAccount: ipp.account,
     destinationAmount: ipp.amount,
@@ -24,11 +25,11 @@ function getQuote(ipp) {
     ilp: base64url(quotePacket),
     custom: {}
   }
-  console.log('lpi quote', requestMessage)
+  debug('lpi quote', requestMessage)
   return plugin.sendRequest(requestMessage).then(responseMessage => {
-    console.log({ responseMessage })
+    debug({ responseMessage })
     const quoteResponse = IlpPacket.deserializeIlqpByDestinationResponse(Buffer.from(responseMessage.ilp, 'base64'))
-    console.log({ quoteResponse }) // sourceAmount: '9000000000', sourceHoldDuration: 3000
+    debug({ quoteResponse }) // sourceAmount: '9000000000', sourceHoldDuration: 3000
     return quoteResponse
   })
 }
@@ -44,12 +45,12 @@ function sendTransfer(sourceAmount, ipp, condition) {
     executionCondition: condition.toString('base64'),
     expiresAt: new Date(new Date().getTime() + 3600000).toISOString()
   }
-  console.log('lpi transfer', transfer)
+  debug('lpi transfer', transfer)
   return plugin.sendTransfer(transfer)
 }
 
 function pay(ipr, res) {
-  console.log('paying', ipr)
+  debug('paying', ipr)
   const ipp = IlpPacket.deserializeIlpPayment(ipr.packet)
   return getQuote(ipp).then(quoteResponse => {
     if (quoteResponse.sourceHoldDuration > 3600000) {
@@ -64,15 +65,15 @@ function pay(ipr, res) {
   })
 }
 
-console.log('connecting plugin, will start webserver soon!')
+debug('connecting plugin, will start webserver soon!')
 plugin.connect().then(() => {
-  console.log('client started, starting webserver')
+  debug('client started, starting webserver')
   startServer((req, res) => {
     Promise.resolve().then(() => {
       const parts = req.url.split('/')
       if (parts.length < 3) {
         const queryData = url.parse(req.url, true).query
-        console.log(queryData)
+        debug(queryData)
         if (queryData.address && queryData.condition) {
           return pay({
             packet: IlpPacket.serializeIlpPayment({
@@ -83,21 +84,21 @@ plugin.connect().then(() => {
             condition: base64url(Buffer.from(queryData.condition, 'hex'))
           }, res)
         }
-        console.log (req.url)
+        debug (req.url)
         res.end('<html><h2>Welcome to Interfaucet!</h2><p>See <a href="https://github.com/michielbdejong/ilp-plugin-stripe/pull/2">the payment requests tutorial</a>.</p>')
         return
       }
-      console.log('interfaucet request!', parts)
+      debug('interfaucet request!', parts)
       const iprBuf = Buffer.from(parts[2], 'hex')
       const ipr = {
         version: iprBuf[0],
         packet: iprBuf.slice(1, iprBuf.length - 32),
         condition: iprBuf.slice(-32)
       }
-      console.log('ipr', JSON.stringify(ipr))
+      debug('ipr', JSON.stringify(ipr))
       return pay(ipr, res)
     }).catch(err => {
-      console.log(err, err.message)
+      debug(err, err.message)
       res.end('<html><h2>Oops! Something went wrong.</h2><p>' + err.message + '</p><img src="https://i.pinimg.com/736x/fa/d2/76/fad27608b9bd588fe18231e2babe2b5f--man-faces-strange-places.jpg"></html>')
     })
   })
